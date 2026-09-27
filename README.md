@@ -50,7 +50,7 @@ The Windows installer adds `julia.cmd` to your user `PATH`; open a new terminal 
 | --- | --- | --- |
 | Deployment | Local CPU, offline after installation | Hosted API |
 | Price (input / output per 1M tokens) | Free | [$0.042 / $0](https://typesafe.ai/blog/introducing-system-one-models-and-jev) |
-| Speed | 14.56 ms per decision on average across 100 reference cases after warmup on one Apple Silicon Mac | [70–500 ms end-to-end response time reported by TypeSafe](https://typesafe.ai/blog/introducing-system-one-models-and-jev) |
+| Speed | 14.56 ms/decision (M4 Pro CPU) | [70–500 ms/request (API)](https://typesafe.ai/blog/introducing-system-one-models-and-jev) |
 | Typed decisions | 73.15% | 72.70% reference |
 | AG News pilot, 100 examples | 94% | 91% reference |
 | Emotion pilot, 100 examples | 86% | 48% reference |
@@ -176,6 +176,6 @@ swift test
 
 The benchmark accepts `MODEL_DIRECTORY ONNX_RUNTIME_LIBRARY TOKENIZER_LIBRARY CASES_JSON [BATCH_SIZE] [THREAD_COUNT] [REPETITIONS]`. Set the thread count to `0` for ONNX Runtime's default. Repetitions report the median.
 
-The local Apple Silicon measurement in the comparison table used ONNX Runtime 1.24.3 CPU and the [author's reference cases](https://huggingface.co/SupersonicLabs/Julia-1-ONNX/blob/main/parity-cases.json). All 100 choices matched, with a maximum absolute logit difference of 0.000174. The timing describes that machine and workload.
+The M4 Pro CPU measurement used ONNX Runtime 1.24.3 and the [author's 100 reference cases](https://huggingface.co/SupersonicLabs/Julia-1-ONNX/blob/main/parity-cases.json) after warmup. All choices matched, with a maximum absolute logit difference of 0.000174. The timing describes that machine and workload.
 
 The model files come from a pinned revision and are SHA-256 verified by `Scripts/download_model.py`. JuliaSwift and Julia-1 use Apache 2.0 licenses. The ONNX Runtime C headers and binary use Microsoft's MIT license; see [ThirdParty/ONNXRuntime-LICENSE](ThirdParty/ONNXRuntime-LICENSE).
