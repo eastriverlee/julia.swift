@@ -39,8 +39,13 @@ def main():
             environment["LD_LIBRARY_PATH"] = str(root / "lib") + os.pathsep + environment.get("LD_LIBRARY_PATH", "")
         result = subprocess.run(
             [str(executable), "decide", "--input", "-", "--model-dir", str(model_directory)],
-            input=json.dumps(payload), capture_output=True, text=True, env=environment, check=True,
+            input=json.dumps(payload), capture_output=True, text=True, env=environment,
         )
+        if result.returncode:
+            details = result.stderr
+            if platform.system() == "Linux":
+                details += subprocess.run(["ldd", str(executable)], capture_output=True, text=True, env=environment).stdout
+            raise RuntimeError(details)
         answer = json.loads(result.stdout)["answers"]["answer"]
         expected = str(max(range(len(reference["pytorch_logits"])), key=reference["pytorch_logits"].__getitem__))
         if answer["choice"] != expected:
