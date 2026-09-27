@@ -9,7 +9,11 @@ let package = Package(
         .executable(name: "julia-benchmark", targets: ["JuliaBenchmark"]),
     ],
     targets: [
-        .target(name: "CJuliaRuntime", linkerSettings: [.linkedLibrary("dl", .when(platforms: [.linux]))]),
+        .target(
+            name: "CJuliaRuntime",
+            cSettings: [.headerSearchPath("private")],
+            linkerSettings: [.linkedLibrary("dl", .when(platforms: [.linux]))]
+        ),
         .target(name: "JuliaSwift", dependencies: ["CJuliaRuntime"]),
         .executableTarget(name: "JuliaBenchmark", dependencies: ["JuliaSwift"]),
         .testTarget(name: "JuliaSwiftTests", dependencies: ["JuliaSwift"]),
