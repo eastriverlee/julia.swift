@@ -49,7 +49,7 @@ The Windows installer adds `julia.cmd` to your user `PATH`; open a new terminal 
 | Measure | Julia-1 with julia.swift | Jev |
 | --- | --- | --- |
 | Deployment | Local CPU, offline after installation | Hosted API |
-| Cost | No per-request API fee; you provide the hardware | [$0.042 per million input tokens; output free](https://typesafe.ai/blog/introducing-system-one-models-and-jev) |
+| Cost | Free | [$0.042 / 1M input tokens](https://typesafe.ai/blog/introducing-system-one-models-and-jev) |
 | Speed | 14.56 ms per decision on average across 100 reference cases after warmup on one Apple Silicon Mac | [70–500 ms end-to-end response time reported by TypeSafe](https://typesafe.ai/blog/introducing-system-one-models-and-jev) |
 | Typed decisions | 73.15% | 72.70% reference |
 | AG News pilot, 100 examples | 94% | 91% reference |
