@@ -2,6 +2,12 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      platform:
+        description: Package to verify
+        type: choice
+        options: [all, macos, linux, windows, ios, model]
+        default: all
   push:
     tags: ["v*"]
 
@@ -10,6 +16,7 @@ permissions:
 
 jobs:
   macos:
+    if: github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'macos'
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -24,6 +31,7 @@ jobs:
           path: dist/*.zip
 
   linux:
+    if: github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'linux'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -42,6 +50,7 @@ jobs:
           path: dist/*.zip
 
   windows:
+    if: github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'windows'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,6 +69,7 @@ jobs:
           path: dist/*.zip
 
   ios:
+    if: github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'ios'
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -73,6 +83,7 @@ jobs:
           path: dist/*.zip
 
   model:
+    if: github.event_name != 'workflow_dispatch' || inputs.platform == 'all' || inputs.platform == 'model'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

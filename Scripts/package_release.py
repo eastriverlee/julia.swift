@@ -34,7 +34,7 @@ def swift_libraries(directory):
         for library in source.iterdir():
             if suffix not in library.name or not library.is_file():
                 continue
-            if platform.system() == "Linux" and not library.name.startswith(("libswift", "libFoundation", "libdispatch", "libBlocksRuntime", "lib_Internal")):
+            if platform.system() == "Linux" and not library.name.startswith(("libswift", "libFoundation", "libdispatch", "libBlocksRuntime", "lib_Internal", "lib_Foundation")):
                 continue
             shutil.copy2(library, directory / library.name)
 
