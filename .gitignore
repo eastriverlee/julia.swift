@@ -1,0 +1,5 @@
+.build/
+.cargo-home/
+Native/tokenizer/target/
+Models/
+.DS_Store
