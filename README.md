@@ -93,4 +93,6 @@ swift run -c release julia-benchmark Models/Julia-1 /path/to/libonnxruntime.dyli
 
 On the local Apple Silicon Mac with ONNX Runtime 1.24.3 CPU, after one warmup call, the 100 cases took 1.464 seconds (14.64 ms per decision) with 100/100 matching choices and 0.000174 maximum absolute logit difference versus the author's PyTorch reference. This is a single-machine result, not a cross-platform speed claim. The CoreML path with an inlined model took 7.484 seconds for the same 100 cases.
 
+The `Full model parity` workflow downloads the verified model and an official ONNX Runtime release, then runs the integration tests and 100-case benchmark on Linux and Windows. Trigger it from GitHub Actions when validating a new release.
+
 The vendored ONNX Runtime C headers are from version 1.24.3 under Microsoft's MIT license; see [ThirdParty/ONNXRuntime-LICENSE](ThirdParty/ONNXRuntime-LICENSE).

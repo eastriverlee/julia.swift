@@ -43,3 +43,6 @@ print("\(cases.count) decisions in \(String(format: "%.3f", duration)) s")
 print("Execution provider: \(provider.rawValue)")
 print("\(String(format: "%.2f", duration * 1000 / Double(cases.count))) ms/decision")
 print("\(matches)/\(cases.count) reference choices; max logit difference \(maximumDifference)")
+guard matches == cases.count, maximumDifference < 0.02 else {
+    fatalError("Julia output did not match the reference cases")
+}

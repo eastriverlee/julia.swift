@@ -1,25 +1,19 @@
-name: Build
+name: Full model parity
 
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
 
 jobs:
-  package:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+  linux:
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: swift-actions/setup-swift@v3
-        if: runner.os == 'Linux'
         with:
           swift-version: "6.2.4"
           skip-verify-signature: true
-      - run: swift test
       - run: cargo build --release --locked --manifest-path Native/tokenizer/Cargo.toml
+      - run: python3 Scripts/run_parity.py
 
   windows:
     runs-on: windows-latest
@@ -29,11 +23,5 @@ jobs:
         with:
           swift-version: swift-6.2.4-release
           swift-build: 6.2.4-RELEASE
-      - run: swift test
       - run: cargo build --release --locked --manifest-path Native/tokenizer/Cargo.toml
-
-  ios:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: swift build --triple arm64-apple-ios16.0 -Xswiftc -sdk -Xswiftc "$(xcrun --sdk iphoneos --show-sdk-path)" -Xcc -isysroot -Xcc "$(xcrun --sdk iphoneos --show-sdk-path)" --product JuliaSwift
+      - run: python Scripts/run_parity.py
