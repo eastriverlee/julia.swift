@@ -111,6 +111,38 @@ public final class JuliaModel {
         self.strictEncoding = strictEncoding
     }
 
+    public convenience init(
+        modelDirectoryURL: URL,
+        nativeLibraryDirectoryURL: URL,
+        maxLength: Int = 1024,
+        headLength: Int = 256,
+        maximumBatchSize: Int = 8,
+        strictEncoding: Bool = true,
+        threadCount: Int32 = 0
+    ) throws {
+        #if os(Windows)
+        let runtimeName = "onnxruntime.dll"
+        let tokenizerName = "julia_tokenizer.dll"
+        #elseif os(macOS) || os(iOS)
+        let runtimeName = "libonnxruntime.dylib"
+        let tokenizerName = "libjulia_tokenizer.dylib"
+        #else
+        let runtimeName = "libonnxruntime.so"
+        let tokenizerName = "libjulia_tokenizer.so"
+        #endif
+        try self.init(
+            modelURL: modelDirectoryURL.appendingPathComponent("model.onnx"),
+            tokenizerURL: modelDirectoryURL.appendingPathComponent("tokenizer.json"),
+            onnxRuntimeLibraryURL: nativeLibraryDirectoryURL.appendingPathComponent(runtimeName),
+            tokenizerLibraryURL: nativeLibraryDirectoryURL.appendingPathComponent(tokenizerName),
+            maxLength: maxLength,
+            headLength: headLength,
+            maximumBatchSize: maximumBatchSize,
+            strictEncoding: strictEncoding,
+            threadCount: threadCount
+        )
+    }
+
     deinit {
         julia_runtime_destroy(runtime)
         julia_tokenizer_destroy(tokenizer)

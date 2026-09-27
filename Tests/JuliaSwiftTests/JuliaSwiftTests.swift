@@ -53,6 +53,42 @@ import Testing
         #expect(throws: JuliaError.self) { try model.predict([question]) }
     }
 
+    @Test func decodesJevShapedRequest() throws {
+        let input = Data(#"{"state":{"ticket":"late"},"model":"jev-latest","questions":{"department":{"type":"choice","instructions":"Choose a team","criteria":{"billing":"Payments","shipping":"Delivery"}}}}"#.utf8)
+        let request = try JSONDecoder().decode(JuliaEvaluationRequest.self, from: input)
+        #expect(request.questions["department"]?.type == .choice)
+        #expect(request.model == "jev-latest")
+    }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["JULIA_MODEL_DIR"] != nil)) func namedChoiceMatchesReference() throws {
+        let model = try loadedModel()
+        let request = JuliaEvaluationRequest(
+            state: .string(""),
+            questions: ["answer": JuliaEvaluationQuestion(
+                type: .choice,
+                instructions: .string("Which option correctly fills the blank?\nHe couldn't fit the soda bottle on the refrigerator shelf because the _ was too tall."),
+                criteria: .object(["shelf": .string("shelf"), "bottle": .string("bottle")])
+            )]
+        )
+        let answer = try #require(model.evaluate(request).answers["answer"])
+        #expect(answer.choice == "bottle")
+        #expect(answer.isApproximate == false)
+        #expect(abs(answer.probabilities.values.reduce(0, +) - 1) < 0.00001)
+    }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["JULIA_MODEL_DIR"] != nil)) func supportsTwoHundredFiftyFiveChoices() throws {
+        let model = try loadedModel()
+        let options = Dictionary(uniqueKeysWithValues: (0..<255).map { ("option\($0)", JuliaJSONValue.string("Candidate \($0)")) })
+        let request = JuliaEvaluationRequest(state: .string("Choose a candidate."), questions: [
+            "selection": JuliaEvaluationQuestion(type: .choice, instructions: .string("Which candidate is best?"), criteria: .object(options))
+        ])
+        let answer = try #require(model.evaluate(request).answers["selection"])
+        #expect(answer.isApproximate)
+        #expect(answer.probabilities.count == 255)
+        #expect(abs(answer.probabilities.values.reduce(0, +) - 1) < 0.00001)
+        #expect(answer.choice.map { options[$0] != nil } == true)
+    }
+
     private func loadedModel() throws -> JuliaModel {
         let environment = ProcessInfo.processInfo.environment
         guard let modelDirectory = environment["JULIA_MODEL_DIR"],
