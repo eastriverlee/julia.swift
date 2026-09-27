@@ -15,7 +15,7 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-for command in gh unzip; do
+for command in curl unzip; do
     if ! command -v "$command" >/dev/null 2>&1; then
         printf 'Required command is missing: %s\n' "$command" >&2
         exit 1
@@ -31,7 +31,12 @@ case "$operating_system:$architecture" in
 esac
 
 if [ -z "$version" ]; then
-    version=$(gh release view --repo "$repository" --json tagName --jq .tagName)
+    version=$(curl -fsSL "https://api.github.com/repos/$repository/releases/latest" \
+        | sed -n 's/^[[:space:]]*"tag_name": "\(v[^"]*\)".*/\1/p' | head -n 1)
+fi
+if [ -z "$version" ]; then
+    printf 'Could not find the latest release.\n' >&2
+    exit 1
 fi
 archive_name=julia-$version-$platform.zip
 installation=$install_root/$version/$platform
@@ -39,18 +44,16 @@ mkdir -p "$install_root" "$command_directory"
 temporary=$(mktemp -d "${TMPDIR:-/tmp}/julia-install.XXXXXX")
 trap 'rm -rf "$temporary"' EXIT HUP INT TERM
 
-gh release download "$version" --repo "$repository" \
-    --pattern "$archive_name" --pattern 'julia-1-model-*.zip' \
-    --pattern SHA256SUMS --dir "$temporary"
-
-model_archive=
-for candidate in "$temporary"/julia-1-model-*.zip; do
-    if [ -f "$candidate" ]; then model_archive=$candidate; fi
-done
-if [ -z "$model_archive" ] || [ ! -f "$temporary/$archive_name" ]; then
-    printf 'Release assets are missing for %s\n' "$version" >&2
+release_url=https://github.com/$repository/releases/download/$version
+curl -fL --retry 3 "$release_url/SHA256SUMS" -o "$temporary/SHA256SUMS"
+model_name=$(awk '$2 ~ /^julia-1-model-[[:alnum:]]+\.zip$/ { print $2 }' "$temporary/SHA256SUMS" | head -n 1)
+if [ -z "$model_name" ]; then
+    printf 'Model asset is missing from %s\n' "$version" >&2
     exit 1
 fi
+curl -fL --retry 3 "$release_url/$archive_name" -o "$temporary/$archive_name"
+model_archive=$temporary/$model_name
+curl -fL --retry 3 "$release_url/$model_name" -o "$model_archive"
 
 verify_checksum() {
     archive=$1

@@ -6,11 +6,10 @@ Run it from Swift on macOS, iOS, Linux, or Windows, or use the `julia` CLI on de
 
 ## Quickstart
 
-The repository is private, so sign in with [GitHub CLI](https://cli.github.com/) using `gh auth login`. On Apple Silicon macOS or Linux x86_64, install the CLI and model:
+On Apple Silicon macOS or Linux x86_64, install the CLI and model:
 
 ```sh
-gh api repos/eastriverlee/julia.swift/contents/Scripts/install.sh \
-  -H 'Accept: application/vnd.github.raw+json' | sh
+curl -fsSL https://raw.githubusercontent.com/eastriverlee/julia.swift/main/Scripts/install.sh | sh
 ```
 
 Ask a question:
@@ -35,11 +34,10 @@ shipping (billing: 0.013352202, shipping: 0.98664784)
 
 The installer verifies release checksums and puts `julia` in `~/.local/bin`. Add that directory to your `PATH` if needed, or set `XDG_BIN_HOME` before installing. The model download is about 540 MB.
 
-On Windows x86_64, run this in PowerShell after `gh auth login`:
+On Windows x86_64, run this in PowerShell:
 
 ```powershell
-$installer = gh api repos/eastriverlee/julia.swift/contents/Scripts/install.ps1 -H 'Accept: application/vnd.github.raw+json'
-Invoke-Expression ($installer -join "`n")
+irm https://raw.githubusercontent.com/eastriverlee/julia.swift/main/Scripts/install.ps1 | iex
 ```
 
 The Windows installer adds `julia.cmd` to your user `PATH`; open a new terminal after installation. Neither Rust nor Swift is required to run a desktop release.
