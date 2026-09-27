@@ -46,11 +46,17 @@ def main():
             if platform.system() == "Linux":
                 details += subprocess.run(["ldd", str(executable)], capture_output=True, text=True, env=environment).stdout
             raise RuntimeError(details)
-        answer = json.loads(result.stdout)["answers"]["answer"]
         expected = str(max(range(len(reference["pytorch_logits"])), key=reference["pytorch_logits"].__getitem__))
-        if answer["choice"] != expected:
-            raise ValueError(f"Release chose {answer['choice']} instead of {expected}")
-        print(f"Verified {archive.name}: choice {answer['choice']}")
+        answer = result.stdout.strip()
+        if answer != expected:
+            raise ValueError(f"Release chose {answer} instead of {expected}")
+        detailed = subprocess.run(
+            [str(executable), "decide", "--input", "-", "--probabilities", "--model-dir", str(model_directory)],
+            input=json.dumps(payload), capture_output=True, text=True, env=environment,
+        )
+        if detailed.returncode or not detailed.stdout.startswith(f"{expected} ("):
+            raise ValueError(f"Release probability output failed: {detailed.stderr or detailed.stdout}")
+        print(f"Verified {archive.name}: choice {answer}")
 
 
 if __name__ == "__main__":

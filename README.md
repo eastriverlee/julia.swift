@@ -15,7 +15,7 @@ gh api repos/eastriverlee/julia.swift/contents/Scripts/install.sh \
   -H 'Accept: application/vnd.github.raw+json' | sh
 ```
 
-The command is placed in `~/.local/bin`, which must be on your `PATH`. Set `XDG_BIN_HOME` to use another command directory. To pin a release, save the script and run `sh install.sh --version v0.1.2`.
+The command is placed in `~/.local/bin`, which must be on your `PATH`. Set `XDG_BIN_HOME` to use another command directory. To pin a release, save the script and run `sh install.sh --version v0.1.3`.
 
 On Windows x86_64, run this in PowerShell after `gh auth login`:
 
@@ -32,9 +32,9 @@ Each desktop archive contains `julia`, ONNX Runtime, the tokenizer library, and 
 
 | Platform | CLI archive |
 | --- | --- |
-| Apple Silicon macOS | `julia-v0.1.2-macos-arm64.zip` |
-| Linux x86_64 | `julia-v0.1.2-linux-x86_64.zip` |
-| Windows x86_64 | `julia-v0.1.2-windows-x86_64.zip` |
+| Apple Silicon macOS | `julia-v0.1.3-macos-arm64.zip` |
+| Linux x86_64 | `julia-v0.1.3-linux-x86_64.zip` |
+| Windows x86_64 | `julia-v0.1.3-windows-x86_64.zip` |
 
 The model archive is `julia-1-model-82a2fadf8fcc.zip`. Extract the CLI archive, then extract the model archive inside its top-level directory. The resulting layout is `bin/`, `lib/`, and `model/`. Check the downloads against `SHA256SUMS` in the release.
 
@@ -110,7 +110,7 @@ Add `https://github.com/eastriverlee/julia.swift` and link the `JuliaSwift` prod
 import Foundation
 import JuliaSwift
 
-let root = URL(fileURLWithPath: "/path/to/julia-v0.1.2-macos-arm64")
+let root = URL(fileURLWithPath: "/path/to/julia-v0.1.3-macos-arm64")
 let model = try JuliaModel(
     modelDirectoryURL: root.appendingPathComponent("model"),
     nativeLibraryDirectoryURL: root.appendingPathComponent("lib")
@@ -138,7 +138,7 @@ For indexed options or raw logits, use `predict([JuliaQuestion])`. Its results p
 
 ## iOS
 
-The `julia-v0.1.2-ios-arm64.zip` release contains `onnxruntime.xcframework` and `JuliaTokenizer.xcframework`. Add both to the app target, add `JuliaSwift` through Swift Package Manager, and bundle the three files from the model archive as app resources. Pass the model resource directory to `JuliaModel(modelDirectoryURL:nativeLibraryDirectoryURL:)`; iOS uses statically linked symbols and ignores the native library URL. The iOS package cross-compiles for arm64. Device inference and memory use require validation in the host app.
+The `julia-v0.1.3-ios-arm64.zip` release contains `onnxruntime.xcframework` and `JuliaTokenizer.xcframework`. Add both to the app target, add `JuliaSwift` through Swift Package Manager, and bundle the three files from the model archive as app resources. Pass the model resource directory to `JuliaModel(modelDirectoryURL:nativeLibraryDirectoryURL:)`; iOS uses statically linked symbols and ignores the native library URL. The iOS package cross-compiles for arm64. Device inference and memory use require validation in the host app.
 
 ## Build and verify from source
 
