@@ -82,6 +82,8 @@ swift run -c release julia-benchmark Models/Julia-1 /path/to/libonnxruntime.dyli
   Native/tokenizer/target/release/libjulia_tokenizer.dylib parity-cases.json
 ```
 
+Append optional `BATCH_SIZE THREAD_COUNT REPETITIONS` arguments to compare CPU settings. A thread count of `0` keeps ONNX Runtime's default. With multiple repetitions, the benchmark reports the median time. Measure on the target machine because the best batch size and thread count vary with hardware and system load.
+
 On the local Apple Silicon Mac with ONNX Runtime 1.24.3 CPU, after one warmup call, the 100 cases took 1.456 seconds (14.56 ms per decision) with 100/100 matching choices and 0.000174 maximum absolute logit difference versus the author's PyTorch reference. This is a single-machine result, not a cross-platform speed claim.
 
 The `Full model parity` workflow downloads the verified model and an official ONNX Runtime release, then runs the integration tests and 100-case benchmark on Linux and Windows. Trigger it from GitHub Actions when validating a new release.
