@@ -1,4 +1,5 @@
 .build/
+dist/
 .cargo-home/
 Native/tokenizer/target/
 Models/

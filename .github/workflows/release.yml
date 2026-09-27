@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo build --release --locked --manifest-path Native/tokenizer/Cargo.toml
+      - run: python3 Scripts/run_parity.py
+      - run: swift build -c release --product julia
+      - run: python3 Scripts/package_release.py ${{ github.ref_name }}
+      - run: python3 Scripts/smoke_release.py dist/julia-${{ github.ref_name }}-macos-arm64.zip Models/Julia-1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: dist/*.zip
+
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: swift-actions/setup-swift@v3
+        with:
+          swift-version: "6.2.4"
+          skip-verify-signature: true
+      - run: cargo build --release --locked --manifest-path Native/tokenizer/Cargo.toml
+      - run: python3 Scripts/run_parity.py
+      - run: swift build -c release --product julia
+      - run: python3 Scripts/package_release.py ${{ github.ref_name }}
+      - run: python3 Scripts/smoke_release.py dist/julia-${{ github.ref_name }}-linux-x86_64.zip Models/Julia-1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          path: dist/*.zip
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: compnerd/gha-setup-swift@main
+        with:
+          swift-version: swift-6.2.4-release
+          swift-build: 6.2.4-RELEASE
+      - run: cargo build --release --locked --manifest-path Native/tokenizer/Cargo.toml
+      - run: python Scripts/run_parity.py
+      - run: swift build -c release --product julia
+      - run: python Scripts/package_release.py ${{ github.ref_name }}
+      - run: python Scripts/smoke_release.py dist/julia-${{ github.ref_name }}-windows-x86_64.zip Models/Julia-1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: dist/*.zip
+
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup target add aarch64-apple-ios
+      - run: cargo build --release --locked --target aarch64-apple-ios --manifest-path Native/tokenizer/Cargo.toml
+      - run: swift build --triple arm64-apple-ios16.0 -Xswiftc -sdk -Xswiftc "$(xcrun --sdk iphoneos --show-sdk-path)" -Xcc -isysroot -Xcc "$(xcrun --sdk iphoneos --show-sdk-path)" --product JuliaSwift
+      - run: python3 Scripts/package_ios.py ${{ github.ref_name }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-ios
+          path: dist/*.zip
+
+  model:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 Scripts/package_model.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-model
+          path: dist/*.zip
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [macos, linux, windows, ios, model]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: dist
+      - run: cd dist && sha256sum *.zip > SHA256SUMS
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

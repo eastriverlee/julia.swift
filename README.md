@@ -1,91 +1,125 @@
 # julia.swift
 
-Swift Package Manager interface for [Supersonic Labs Julia 1](https://huggingface.co/SupersonicLabs/Julia-1), a 144M parameter model that chooses among 2–20 supplied answers. It supports choice, ordered score, and Boolean decisions. It is not a text generation model.
+Run [Supersonic Labs Julia-1](https://huggingface.co/SupersonicLabs/Julia-1) locally from Swift or the `julia` command. Julia-1 answers Choice, Score, and Noul questions about a shared state. It returns probabilities and does not generate text.
 
-The package has no Swift package dependencies. It uses the author's [ONNX export](https://huggingface.co/SupersonicLabs/Julia-1-ONNX), ONNX Runtime's CPU execution path, and a small Rust bridge to the Hugging Face tokenizer. The model stays loaded between calls. Requests are encoded in process, sorted by token length, and run in bounded batches.
+The package has no Swift dependencies. Inference uses the [Julia-1 ONNX export](https://huggingface.co/SupersonicLabs/Julia-1-ONNX) on ONNX Runtime's CPU path. A small Rust library runs the Hugging Face tokenizer. Keep one `JuliaModel` instance loaded across requests.
 
-## Requirements
+## Download a CLI release
 
-- Swift 6.0 or newer
-- Rust and Cargo to build the tokenizer library
-- ONNX Runtime 1.24.x CPU native library for the target platform
-- About 600 MiB of disk space for the model and tokenizer, plus runtime memory
+Each desktop archive contains `julia`, ONNX Runtime, the tokenizer library, and their licenses. Download the matching model archive alongside it from [Releases](https://github.com/eastriverlee/julia.swift/releases):
 
-The model files are downloaded separately and are never committed to this repository. The source code is Apache 2.0 licensed. The model is published under Apache 2.0 by Supersonic Labs.
+| Platform | CLI archive |
+| --- | --- |
+| Apple Silicon macOS | `julia-v0.1.0-macos-arm64.zip` |
+| Linux x86_64 | `julia-v0.1.0-linux-x86_64.zip` |
+| Windows x86_64 | `julia-v0.1.0-windows-x86_64.zip` |
 
-## Install
+The model archive is `julia-1-model-82a2fadf8fcc.zip`. Extract the CLI archive, then extract the model archive inside its top-level directory. The resulting layout is `bin/`, `lib/`, and `model/`. Check the downloads against `SHA256SUMS` in the release.
 
-Add the package to your app:
+On macOS or Linux, run `./julia` from the extracted directory. On Windows, run `julia.cmd`. Neither Rust nor Swift is required to run a desktop release. The repository is private, so GitHub access is required to download its releases.
 
-```swift
-.package(url: "https://github.com/eastriverlee/julia.swift", branch: "main")
+```sh
+./julia decide \
+  --state "The customer was charged twice." \
+  --question "Which team should handle this request?" \
+  --option billing="Payment disputes and refunds" \
+  --option shipping="Delivery issues"
 ```
 
-Add the `JuliaSwift` product to the app target. Download the pinned, SHA-256 verified model files:
+The CLI also reads a Jev-shaped request from a file or standard input:
+
+```sh
+./julia decide --input request.json
+cat request.json | ./julia decide --input -
+```
+
+```json
+{
+  "state": { "ticket": "The customer was charged twice." },
+  "questions": {
+    "department": {
+      "type": "choice",
+      "instructions": "Which team should handle this request?",
+      "criteria": {
+        "billing": "Payment disputes and refunds",
+        "shipping": "Delivery issues"
+      }
+    },
+    "urgent": {
+      "type": "noul",
+      "instructions": "Does this require immediate attention?"
+    },
+    "severity": {
+      "type": "score",
+      "instructions": "How severe is the problem?",
+      "criteria": ["Low", "Moderate", "High"]
+    }
+  }
+}
+```
+
+The answer map uses the same question names. Choice returns `choice` and named `probabilities`; Score returns a zero-based, probability-weighted `score`; Noul returns the probability of true in `noul`. Choice and Score include `maxProbability`. Each answer has `isApproximate`.
+
+The request shape follows [TypeSafe's System One API](https://docs.typesafe.ai/api). The response names the actual local model, `SupersonicLabs/Julia-1`. Julia-1 is a different model from Jev: its probabilities and decisions are not interchangeable with Jev's, and `maxProbability` is not Jev's `confidence`. The local response does not report Jev token usage.
+
+Julia-1 evaluates up to 20 options per model call. For Choice with 21–255 options, the library compares groups of candidates against a shared anchor and combines their relative logits. It returns a probability for every option and sets `isApproximate` to true. Grouped probabilities are estimates; use them with care. Choice keys are sorted before inference so JSON object order does not change the grouping. Score accepts 2–10 ordered levels. Noul uses false then true, with optional `criteria` descriptions for those two values. Structured state, instructions, and descriptions are rendered as JSON text for the model.
+
+## Swift Package Manager
+
+Add `https://github.com/eastriverlee/julia.swift` and link the `JuliaSwift` product. Swift 6.0 or newer is required. A desktop app also needs the model and the two native libraries available at URLs it controls.
+
+```swift
+import Foundation
+import JuliaSwift
+
+let root = URL(fileURLWithPath: "/path/to/julia-v0.1.0-macos-arm64")
+let model = try JuliaModel(
+    modelDirectoryURL: root.appendingPathComponent("model"),
+    nativeLibraryDirectoryURL: root.appendingPathComponent("lib")
+)
+let request = JuliaEvaluationRequest(
+    state: .string("The customer was charged twice."),
+    questions: [
+        "department": JuliaEvaluationQuestion(
+            type: .choice,
+            instructions: .string("Which team should handle this request?"),
+            criteria: .object([
+                "billing": .string("Payment disputes and refunds"),
+                "shipping": .string("Delivery issues")
+            ])
+        )
+    ]
+)
+let answer = try model.evaluate(request).answers["department"]
+print(answer?.choice ?? "No answer")
+```
+
+For indexed options or raw logits, use `predict([JuliaQuestion])`. Its results preserve question and option order. The default context limit is 1,024 tokens with a 256-token question and option budget. Strict encoding rejects truncation, options longer than 48 tokens, and the reserved `<mask>` marker. `maxLength`, `headLength`, `maximumBatchSize`, and `threadCount` can be set when constructing `JuliaModel`.
+
+## iOS
+
+The `julia-v0.1.0-ios-arm64.zip` release contains `onnxruntime.xcframework` and `JuliaTokenizer.xcframework`. Add both to the app target, add `JuliaSwift` through Swift Package Manager, and bundle the three files from the model archive as app resources. Pass the model resource directory to `JuliaModel(modelDirectoryURL:nativeLibraryDirectoryURL:)`; iOS uses statically linked symbols and ignores the native library URL. The iOS package cross-compiles for arm64. Device inference and memory use require validation in the host app.
+
+## Build and verify from source
 
 ```sh
 python3 Scripts/download_model.py Models/Julia-1
 cargo build --release --locked --manifest-path Native/tokenizer/Cargo.toml
+swift test
+swift build -c release --product julia
 ```
 
-The tokenizer library is `Native/tokenizer/target/release/libjulia_tokenizer.dylib` on macOS, `libjulia_tokenizer.so` on Linux, or `julia_tokenizer.dll` on Windows. Obtain ONNX Runtime's native shared library from the [official release](https://github.com/microsoft/onnxruntime/releases/tag/v1.24.3) or an [official install method](https://onnxruntime.ai/docs/install/). The app must make both native libraries available locally; the Swift package loads them from the URLs supplied at initialization.
-
-```swift
-import JuliaSwift
-
-let directory = URL(fileURLWithPath: "/path/to/Models/Julia-1")
-let model = try JuliaModel(
-    modelURL: directory.appendingPathComponent("model.onnx"),
-    tokenizerURL: directory.appendingPathComponent("tokenizer.json"),
-    onnxRuntimeLibraryURL: URL(fileURLWithPath: "/path/to/libonnxruntime.dylib"),
-    tokenizerLibraryURL: URL(fileURLWithPath: "/path/to/libjulia_tokenizer.dylib")
-)
-let decisions = try model.predict([
-    JuliaQuestion(
-        state: "The customer was charged twice for the same order.",
-        question: "Which team should handle this request?",
-        options: ["Billing and payment disputes", "Shipping and delivery", "Account access"]
-    )
-])
-print(decisions[0].index, decisions[0].probabilities)
-```
-
-Use the same `JuliaModel` instance for subsequent requests. Results preserve the caller's question and option order. `JuliaDecision` contains raw logits, full softmax probabilities, and the winning index. For `.score`, `score` is the expected zero-based rubric index. For `.noul`, `probabilityOfTrue` is the probability of the second, true option. Supply false then true for `.noul`.
-
-The defaults use strict encoding, a 1,024-token combined context, a 256-token head budget, and batches of up to eight. You can set `maxLength` as high as 8,192, but larger contexts consume more time and memory. Strict encoding rejects truncation, overlong options, and the reserved `<mask>` marker. Clear, distinct option descriptions matter for accuracy.
-
-## Platforms
-
-| Platform | Native runtime integration | Current validation |
-| --- | --- | --- |
-| macOS | ONNX Runtime and Rust tokenizer shared libraries | Built and tested with real weights on Apple Silicon |
-| Linux | ONNX Runtime and Rust tokenizer shared libraries | Real-weight parity: 100/100 reference choices in CI |
-| Windows | ONNX Runtime and Rust tokenizer DLLs | Real-weight parity: 100/100 reference choices in CI |
-| iOS | Statically link ONNX Runtime C and Rust tokenizer libraries into the app | Package cross-compiles for arm64 iOS; device inference needs app integration testing |
-
-On iOS, build the Rust static library with `cargo build --release --target aarch64-apple-ios --manifest-path Native/tokenizer/Cargo.toml`, link `libjulia_tokenizer.a` and the [ONNX Runtime iOS C library](https://onnxruntime.ai/docs/install/) into the app, and bundle the three model files as app resources. The two library URL arguments are ignored on iOS because the symbols are statically linked. An iOS app needs enough storage and RAM for this 551 MB weight file. Run an on-device parity and memory test before release.
-
-## Verify and benchmark
+Use the paths for your platform when running integration tests:
 
 ```sh
-swift test
 JULIA_MODEL_DIR="$PWD/Models/Julia-1" \
 ONNX_RUNTIME_LIBRARY="/path/to/libonnxruntime.dylib" \
 JULIA_TOKENIZER_LIBRARY="$PWD/Native/tokenizer/target/release/libjulia_tokenizer.dylib" \
 swift test
 ```
 
-The second command runs integration tests against the actual weights. The [author's 100 parity cases](https://huggingface.co/SupersonicLabs/Julia-1-ONNX/blob/main/parity-cases.json) can be timed with:
+The benchmark accepts `MODEL_DIRECTORY ONNX_RUNTIME_LIBRARY TOKENIZER_LIBRARY CASES_JSON [BATCH_SIZE] [THREAD_COUNT] [REPETITIONS]`. Set the thread count to `0` for ONNX Runtime's default. Repetitions report the median.
 
-```sh
-swift run -c release julia-benchmark Models/Julia-1 /path/to/libonnxruntime.dylib \
-  Native/tokenizer/target/release/libjulia_tokenizer.dylib parity-cases.json
-```
+On one local Apple Silicon Mac with ONNX Runtime 1.24.3 CPU, the [author's 100 reference cases](https://huggingface.co/SupersonicLabs/Julia-1-ONNX/blob/main/parity-cases.json) took 1.456 seconds in total after warmup, or 14.56 ms per decision on average. All 100 choices matched, with a maximum absolute logit difference of 0.000174. These figures describe that machine and workload.
 
-Append optional `BATCH_SIZE THREAD_COUNT REPETITIONS` arguments to compare CPU settings. A thread count of `0` keeps ONNX Runtime's default. With multiple repetitions, the benchmark reports the median time. Measure on the target machine because the best batch size and thread count vary with hardware and system load.
-
-On the local Apple Silicon Mac with ONNX Runtime 1.24.3 CPU, after one warmup call, the 100 cases took 1.456 seconds (14.56 ms per decision) with 100/100 matching choices and 0.000174 maximum absolute logit difference versus the author's PyTorch reference. This is a single-machine result, not a cross-platform speed claim.
-
-The `Full model parity` workflow downloads the verified model and an official ONNX Runtime release, then runs the integration tests and 100-case benchmark on Linux and Windows. Trigger it from GitHub Actions when validating a new release.
-
-The vendored ONNX Runtime C headers are from version 1.24.3 under Microsoft's MIT license; see [ThirdParty/ONNXRuntime-LICENSE](ThirdParty/ONNXRuntime-LICENSE).
+The model files come from a pinned revision and are SHA-256 verified by `Scripts/download_model.py`. JuliaSwift and Julia-1 use Apache 2.0 licenses. The ONNX Runtime C headers and binary use Microsoft's MIT license; see [ThirdParty/ONNXRuntime-LICENSE](ThirdParty/ONNXRuntime-LICENSE).
