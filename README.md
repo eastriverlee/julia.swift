@@ -1,8 +1,8 @@
 # Julia-1 for Swift
 
-Give [Supersonic Labs Julia-1](https://huggingface.co/SupersonicLabs/Julia-1) a situation, a question, and possible answers. Get a decision in one line, or add `--probabilities` to see how it scored each option. The Swift package targets macOS, iOS, Linux, and Windows; desktop releases include the `julia` command.
+Fast decisions on your own CPU. Free to run offline after installation. [Supersonic Labs Julia-1](https://huggingface.co/SupersonicLabs/Julia-1) follows the System One pattern: give it a situation, a question, and possible answers to get a choice, score, or yes/no probability. It handles the same kinds of typed questions as [Jev](https://docs.typesafe.ai/api) through a familiar request shape, using its own model and probabilities.
 
-The Swift package has no Swift dependencies. Inference runs locally on the CPU through [ONNX Runtime](https://onnxruntime.ai/). The CLI accepts named choices, ordered scores, and yes/no questions.
+Run it from Swift on macOS, iOS, Linux, or Windows, or use the `julia` CLI on desktop. Inference needs no network connection or per-request API fee once the model is installed. The Swift package has no Swift dependencies; it uses [ONNX Runtime](https://onnxruntime.ai/) on the CPU and a Rust tokenizer. See the [benchmark](#benchmark) for measured speed.
 
 ## Quickstart
 
@@ -43,6 +43,20 @@ Invoke-Expression ($installer -join "`n")
 ```
 
 The Windows installer adds `julia.cmd` to your user `PATH`; open a new terminal after installation. Neither Rust nor Swift is required to run a desktop release.
+
+## Julia-1 vs Jev
+
+| Measure | Julia-1 with julia.swift | Jev |
+| --- | --- | --- |
+| Deployment | Local CPU, offline after installation | Hosted API |
+| Cost | No per-request API fee; you provide the hardware | [$0.042 per million input tokens; output free](https://typesafe.ai/blog/introducing-system-one-models-and-jev) |
+| Speed | 14.56 ms per decision on average across 100 reference cases after warmup on one Apple Silicon Mac | [70–500 ms end-to-end response time reported by TypeSafe](https://typesafe.ai/blog/introducing-system-one-models-and-jev) |
+| Typed decisions | 73.15% | 72.70% reference |
+| AG News pilot, 100 examples | 94% | 91% reference |
+| Emotion pilot, 100 examples | 86% | 48% reference |
+| Banking77 pilot, 100 examples | 64% | 87% reference |
+
+Accuracy figures come from the [Julia-1 model card](https://huggingface.co/SupersonicLabs/Julia-1), measured on the original checkpoint with H200 BF16 inference on September 24, 2026. Its Jev values are supplied references from earlier work. Banking77 used a ranking and top-16 shortlist. Jev's price and latency are TypeSafe's published figures from September 15, 2026. Validation of this Swift runtime covers 100 matching reference choices; the full accuracy suite describes the original runtime. The speed figures use different hardware, workloads, and measurement methods. Read each as a measurement of its own setup.
 
 ## CLI requests
 
@@ -158,8 +172,10 @@ JULIA_TOKENIZER_LIBRARY="$PWD/Native/tokenizer/target/release/libjulia_tokenizer
 swift test
 ```
 
+### Benchmark
+
 The benchmark accepts `MODEL_DIRECTORY ONNX_RUNTIME_LIBRARY TOKENIZER_LIBRARY CASES_JSON [BATCH_SIZE] [THREAD_COUNT] [REPETITIONS]`. Set the thread count to `0` for ONNX Runtime's default. Repetitions report the median.
 
-On one local Apple Silicon Mac with ONNX Runtime 1.24.3 CPU, the [author's 100 reference cases](https://huggingface.co/SupersonicLabs/Julia-1-ONNX/blob/main/parity-cases.json) took 1.456 seconds in total after warmup, or 14.56 ms per decision on average. All 100 choices matched, with a maximum absolute logit difference of 0.000174. These figures describe that machine and workload.
+The local Apple Silicon measurement in the comparison table used ONNX Runtime 1.24.3 CPU and the [author's reference cases](https://huggingface.co/SupersonicLabs/Julia-1-ONNX/blob/main/parity-cases.json). All 100 choices matched, with a maximum absolute logit difference of 0.000174. The timing describes that machine and workload.
 
 The model files come from a pinned revision and are SHA-256 verified by `Scripts/download_model.py`. JuliaSwift and Julia-1 use Apache 2.0 licenses. The ONNX Runtime C headers and binary use Microsoft's MIT license; see [ThirdParty/ONNXRuntime-LICENSE](ThirdParty/ONNXRuntime-LICENSE).
