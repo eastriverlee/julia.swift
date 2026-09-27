@@ -11,7 +11,7 @@ private struct Options {
     var modelDirectory: String?
     var runtimeLibrary: String?
     var tokenizerLibrary: String?
-    var isProbabilitiesOnly = false
+    var includesProbabilities = false
     var isHelpRequested = false
 
     init(arguments: [String]) throws {
@@ -20,7 +20,7 @@ private struct Options {
             let argument = arguments[index]
             if argument == "decide" { index += 1; continue }
             if argument == "--help" || argument == "-h" { isHelpRequested = true; return }
-            if argument == "--probabilities" { isProbabilitiesOnly = true; index += 1; continue }
+            if argument == "--probabilities" { includesProbabilities = true; index += 1; continue }
             guard index + 1 < arguments.count else {
                 throw JuliaError.invalidConfiguration("Missing value for \(argument)")
             }
@@ -79,18 +79,43 @@ private struct Options {
             let request = try options.request()
             let model = try loadModel(options)
             let response = try model.evaluate(request)
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-            let data: Data
-            if options.isProbabilitiesOnly {
-                data = try encoder.encode(response.answers.mapValues(\.probabilities))
-            } else {
-                data = try encoder.encode(response)
-            }
+            let data = try outputData(response, includesProbabilities: options.includesProbabilities)
             FileHandle.standardOutput.write(data + Data([10]))
         } catch {
             FileHandle.standardError.write(Data("julia: \(error.localizedDescription)\n".utf8))
             exit(2)
+        }
+    }
+
+    private static func outputData(_ response: JuliaEvaluationResponse, includesProbabilities: Bool) throws -> Data {
+        let answers = try response.answers.keys.sorted().map { name in
+            guard let answer = response.answers[name] else {
+                throw JuliaError.runtime("Missing answer for \(name)")
+            }
+            let selected = try answerText(answer)
+            if !includesProbabilities { return selected }
+            let probabilities = try answer.probabilities.keys.sorted().map { option in
+                guard let probability = answer.probabilities[option] else {
+                    throw JuliaError.runtime("Missing probability for \(option)")
+                }
+                return "\(option): \(probability)"
+            }
+            return "\(selected) (\(probabilities.joined(separator: ", ")))"
+        }
+        return Data(answers.joined(separator: "\n").utf8)
+    }
+
+    private static func answerText(_ answer: JuliaEvaluationAnswer) throws -> String {
+        switch answer.type {
+        case .choice:
+            guard let choice = answer.choice else { throw JuliaError.runtime("Choice answer is missing") }
+            return choice
+        case .score:
+            guard let score = answer.score else { throw JuliaError.runtime("Score answer is missing") }
+            return String(score)
+        case .noul:
+            guard let noul = answer.noul else { throw JuliaError.runtime("Noul answer is missing") }
+            return String(noul)
         }
     }
 
