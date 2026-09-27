@@ -4,23 +4,47 @@ Run [Supersonic Labs Julia-1](https://huggingface.co/SupersonicLabs/Julia-1) loc
 
 The package has no Swift dependencies. Inference uses the [Julia-1 ONNX export](https://huggingface.co/SupersonicLabs/Julia-1-ONNX) on ONNX Runtime's CPU path. A small Rust library runs the Hugging Face tokenizer. Keep one `JuliaModel` instance loaded across requests.
 
-## Download a CLI release
+## Install the CLI
+
+The repository is private. Sign in with [GitHub CLI](https://cli.github.com/) using `gh auth login` before installing. The installer downloads the matching desktop build and the model, verifies both against the release SHA-256 checksums, and adds a `julia` command in your user directory. The model download is about 540 MB.
+
+On Apple Silicon macOS or Linux x86_64:
+
+```sh
+gh api repos/eastriverlee/julia.swift/contents/Scripts/install.sh \
+  -H 'Accept: application/vnd.github.raw+json' | sh
+```
+
+The command is placed in `~/.local/bin`, which must be on your `PATH`. Set `XDG_BIN_HOME` to use another command directory. To pin a release, save the script and run `sh install.sh --version v0.1.1`.
+
+On Windows x86_64, run this in PowerShell after `gh auth login`:
+
+```powershell
+$installer = gh api repos/eastriverlee/julia.swift/contents/Scripts/install.ps1 -H 'Accept: application/vnd.github.raw+json'
+Invoke-Expression ($installer -join "`n")
+```
+
+The Windows installer adds `julia.cmd` to your user `PATH`; open a new terminal after installation. Neither Rust nor Swift is required to run a desktop release.
+
+## Manual release files
 
 Each desktop archive contains `julia`, ONNX Runtime, the tokenizer library, and their licenses. Download the matching model archive alongside it from [Releases](https://github.com/eastriverlee/julia.swift/releases):
 
 | Platform | CLI archive |
 | --- | --- |
-| Apple Silicon macOS | `julia-v0.1.0-macos-arm64.zip` |
-| Linux x86_64 | `julia-v0.1.0-linux-x86_64.zip` |
-| Windows x86_64 | `julia-v0.1.0-windows-x86_64.zip` |
+| Apple Silicon macOS | `julia-v0.1.1-macos-arm64.zip` |
+| Linux x86_64 | `julia-v0.1.1-linux-x86_64.zip` |
+| Windows x86_64 | `julia-v0.1.1-windows-x86_64.zip` |
 
 The model archive is `julia-1-model-82a2fadf8fcc.zip`. Extract the CLI archive, then extract the model archive inside its top-level directory. The resulting layout is `bin/`, `lib/`, and `model/`. Check the downloads against `SHA256SUMS` in the release.
 
-On macOS or Linux, run `./julia` from the extracted directory. On Windows, run `julia.cmd`. Neither Rust nor Swift is required to run a desktop release. The repository is private, so GitHub access is required to download its releases.
+On macOS or Linux, run `./julia` from the extracted directory. On Windows, run `julia.cmd`.
+
+## Decide from the command line
 
 ```sh
-./julia decide \
-  --state "The customer was charged twice." \
+julia decide \
+  --state "The package has not arrived after the promised delivery date." \
   --question "Which team should handle this request?" \
   --option billing="Payment disputes and refunds" \
   --option shipping="Delivery issues"
@@ -29,8 +53,8 @@ On macOS or Linux, run `./julia` from the extracted directory. On Windows, run `
 The CLI also reads a Jev-shaped request from a file or standard input:
 
 ```sh
-./julia decide --input request.json
-cat request.json | ./julia decide --input -
+julia decide --input request.json
+cat request.json | julia decide --input -
 ```
 
 ```json
@@ -58,6 +82,48 @@ cat request.json | ./julia decide --input -
 }
 ```
 
+The `--state` example returns the selected choice and its probabilities:
+
+```json
+{
+  "answers": {
+    "decision": {
+      "choice": "shipping",
+      "isApproximate": false,
+      "maxProbability": 0.98664784,
+      "probabilities": {
+        "billing": 0.013352202,
+        "shipping": 0.98664784
+      },
+      "type": "choice"
+    }
+  },
+  "model": "SupersonicLabs/Julia-1"
+}
+```
+
+`choice` is the selected option key. `probabilities` gives every option's probability; `maxProbability` is the selected option's value. The numbers depend on the input and model files. Add `--probabilities` to print just the probability maps, keyed by question name:
+
+```sh
+julia decide \
+  --state "The package has not arrived after the promised delivery date." \
+  --question "Which team should handle this request?" \
+  --option billing="Payment disputes and refunds" \
+  --option shipping="Delivery issues" \
+  --probabilities
+```
+
+```json
+{
+  "decision": {
+    "billing": 0.013352202,
+    "shipping": 0.98664784
+  }
+}
+```
+
+For `--input request.json`, the probability-only output has `department`, `severity`, and `urgent` keys. Score uses numeric level indices, and Noul uses `false` and `true` keys.
+
 The answer map uses the same question names. Choice returns `choice` and named `probabilities`; Score returns a zero-based, probability-weighted `score`; Noul returns the probability of true in `noul`. Choice and Score include `maxProbability`. Each answer has `isApproximate`.
 
 The request shape follows [TypeSafe's System One API](https://docs.typesafe.ai/api). The response names the actual local model, `SupersonicLabs/Julia-1`. Julia-1 is a different model from Jev: its probabilities and decisions are not interchangeable with Jev's, and `maxProbability` is not Jev's `confidence`. The local response does not report Jev token usage.
@@ -72,7 +138,7 @@ Add `https://github.com/eastriverlee/julia.swift` and link the `JuliaSwift` prod
 import Foundation
 import JuliaSwift
 
-let root = URL(fileURLWithPath: "/path/to/julia-v0.1.0-macos-arm64")
+let root = URL(fileURLWithPath: "/path/to/julia-v0.1.1-macos-arm64")
 let model = try JuliaModel(
     modelDirectoryURL: root.appendingPathComponent("model"),
     nativeLibraryDirectoryURL: root.appendingPathComponent("lib")
@@ -90,15 +156,17 @@ let request = JuliaEvaluationRequest(
         )
     ]
 )
-let answer = try model.evaluate(request).answers["department"]
-print(answer?.choice ?? "No answer")
+if let answer = try model.evaluate(request).answers["department"] {
+    print(answer.choice ?? "No answer")
+    print(answer.probabilities)
+}
 ```
 
 For indexed options or raw logits, use `predict([JuliaQuestion])`. Its results preserve question and option order. The default context limit is 1,024 tokens with a 256-token question and option budget. Strict encoding rejects truncation, options longer than 48 tokens, and the reserved `<mask>` marker. `maxLength`, `headLength`, `maximumBatchSize`, and `threadCount` can be set when constructing `JuliaModel`.
 
 ## iOS
 
-The `julia-v0.1.0-ios-arm64.zip` release contains `onnxruntime.xcframework` and `JuliaTokenizer.xcframework`. Add both to the app target, add `JuliaSwift` through Swift Package Manager, and bundle the three files from the model archive as app resources. Pass the model resource directory to `JuliaModel(modelDirectoryURL:nativeLibraryDirectoryURL:)`; iOS uses statically linked symbols and ignores the native library URL. The iOS package cross-compiles for arm64. Device inference and memory use require validation in the host app.
+The `julia-v0.1.1-ios-arm64.zip` release contains `onnxruntime.xcframework` and `JuliaTokenizer.xcframework`. Add both to the app target, add `JuliaSwift` through Swift Package Manager, and bundle the three files from the model archive as app resources. Pass the model resource directory to `JuliaModel(modelDirectoryURL:nativeLibraryDirectoryURL:)`; iOS uses statically linked symbols and ignores the native library URL. The iOS package cross-compiles for arm64. Device inference and memory use require validation in the host app.
 
 ## Build and verify from source
 

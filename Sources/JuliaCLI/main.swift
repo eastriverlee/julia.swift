@@ -11,6 +11,7 @@ private struct Options {
     var modelDirectory: String?
     var runtimeLibrary: String?
     var tokenizerLibrary: String?
+    var isProbabilitiesOnly = false
     var isHelpRequested = false
 
     init(arguments: [String]) throws {
@@ -19,6 +20,7 @@ private struct Options {
             let argument = arguments[index]
             if argument == "decide" { index += 1; continue }
             if argument == "--help" || argument == "-h" { isHelpRequested = true; return }
+            if argument == "--probabilities" { isProbabilitiesOnly = true; index += 1; continue }
             guard index + 1 < arguments.count else {
                 throw JuliaError.invalidConfiguration("Missing value for \(argument)")
             }
@@ -71,7 +73,7 @@ private struct Options {
         do {
             let options = try Options(arguments: Array(CommandLine.arguments.dropFirst()))
             if options.isHelpRequested {
-                print("Usage: julia decide --input FILE|- [--model-dir DIR] [--runtime-library FILE] [--tokenizer-library FILE]\n       julia decide --state TEXT --question TEXT --type choice --option NAME=DESCRIPTION --option NAME=DESCRIPTION")
+                print("Usage: julia decide --input FILE|- [--probabilities] [--model-dir DIR]\n       julia decide --state TEXT --question TEXT --type choice --option NAME=DESCRIPTION --option NAME=DESCRIPTION [--probabilities]")
                 return
             }
             let request = try options.request()
@@ -79,7 +81,12 @@ private struct Options {
             let response = try model.evaluate(request)
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-            let data = try encoder.encode(response)
+            let data: Data
+            if options.isProbabilitiesOnly {
+                data = try encoder.encode(response.answers.mapValues(\.probabilities))
+            } else {
+                data = try encoder.encode(response)
+            }
             FileHandle.standardOutput.write(data + Data([10]))
         } catch {
             FileHandle.standardError.write(Data("julia: \(error.localizedDescription)\n".utf8))
