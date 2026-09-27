@@ -91,8 +91,7 @@ void julia_runtime_destroy(JuliaRuntime *runtime) {
     free(runtime);
 }
 
-JuliaRuntime *julia_runtime_create(const char *library_path, const char *model_path,
-                                   const char *execution_provider, int32_t thread_count) {
+JuliaRuntime *julia_runtime_create(const char *library_path, const char *model_path, int32_t thread_count) {
     JuliaRuntime *runtime = calloc(1, sizeof(*runtime));
     if (!runtime) return NULL;
     runtime->library = open_library(library_path);
@@ -115,10 +114,6 @@ JuliaRuntime *julia_runtime_create(const char *library_path, const char *model_p
     if (!accept_status(runtime, runtime->api->CreateSessionOptions(&options))) return runtime;
     if (thread_count > 0 && !accept_status(runtime, runtime->api->SetIntraOpNumThreads(options, thread_count))) goto finish;
     if (!accept_status(runtime, runtime->api->SetSessionGraphOptimizationLevel(options, ORT_ENABLE_ALL))) goto finish;
-    if (execution_provider && execution_provider[0] && strcmp(execution_provider, "CPU") != 0) {
-        if (!accept_status(runtime, runtime->api->SessionOptionsAppendExecutionProvider(
-            options, execution_provider, NULL, NULL, 0))) goto finish;
-    }
 #ifdef _WIN32
     int length = MultiByteToWideChar(CP_UTF8, 0, model_path, -1, NULL, 0);
     wchar_t *wide_path = length > 0 ? calloc((size_t)length, sizeof(wchar_t)) : NULL;

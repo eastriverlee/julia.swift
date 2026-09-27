@@ -7,8 +7,7 @@
 typedef struct JuliaRuntime JuliaRuntime;
 typedef struct JuliaTokenizer JuliaTokenizer;
 
-JuliaRuntime *julia_runtime_create(const char *library_path, const char *model_path,
-                                   const char *execution_provider, int32_t thread_count);
+JuliaRuntime *julia_runtime_create(const char *library_path, const char *model_path, int32_t thread_count);
 bool julia_runtime_run(JuliaRuntime *runtime, const int64_t *input_ids, const int64_t *attention_mask,
                        const int64_t *marker_positions, const bool *marker_mask, const int64_t *question_types,
                        int64_t batch_size, int64_t sequence_length, int64_t option_count, float *output);

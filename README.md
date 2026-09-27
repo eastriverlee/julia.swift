@@ -2,13 +2,13 @@
 
 Swift Package Manager interface for [Supersonic Labs Julia 1](https://huggingface.co/SupersonicLabs/Julia-1), a 144M parameter model that chooses among 2–20 supplied answers. It supports choice, ordered score, and Boolean decisions. It is not a text generation model.
 
-The package has no Swift package dependencies. It uses the author's [ONNX export](https://huggingface.co/SupersonicLabs/Julia-1-ONNX), ONNX Runtime's C API, and a small Rust bridge to the Hugging Face tokenizer. The model stays loaded between calls. Requests are encoded in process, sorted by token length, and run in bounded batches. CPU inference is the recommended starting point on all platforms.
+The package has no Swift package dependencies. It uses the author's [ONNX export](https://huggingface.co/SupersonicLabs/Julia-1-ONNX), ONNX Runtime's CPU execution path, and a small Rust bridge to the Hugging Face tokenizer. The model stays loaded between calls. Requests are encoded in process, sorted by token length, and run in bounded batches.
 
 ## Requirements
 
 - Swift 6.0 or newer
 - Rust and Cargo to build the tokenizer library
-- ONNX Runtime 1.24.x native library for the target platform
+- ONNX Runtime 1.24.x CPU native library for the target platform
 - About 600 MiB of disk space for the model and tokenizer, plus runtime memory
 
 The model files are downloaded separately and are never committed to this repository. The source code is Apache 2.0 licensed. The model is published under Apache 2.0 by Supersonic Labs.
@@ -28,7 +28,7 @@ python3 Scripts/download_model.py Models/Julia-1
 cargo build --release --locked --manifest-path Native/tokenizer/Cargo.toml
 ```
 
-The tokenizer library is `Native/tokenizer/target/release/libjulia_tokenizer.dylib` on macOS, `libjulia_tokenizer.so` on Linux, or `julia_tokenizer.dll` on Windows. Obtain ONNX Runtime's native shared library from the [official release](https://github.com/microsoft/onnxruntime/releases/tag/v1.24.3) or an [official install method](https://onnxruntime.ai/docs/install/). Keep ONNX Runtime's provider libraries beside its main library when using GPU providers. The app must make both native libraries available locally; the Swift package loads them from the URLs supplied at initialization.
+The tokenizer library is `Native/tokenizer/target/release/libjulia_tokenizer.dylib` on macOS, `libjulia_tokenizer.so` on Linux, or `julia_tokenizer.dll` on Windows. Obtain ONNX Runtime's native shared library from the [official release](https://github.com/microsoft/onnxruntime/releases/tag/v1.24.3) or an [official install method](https://onnxruntime.ai/docs/install/). The app must make both native libraries available locally; the Swift package loads them from the URLs supplied at initialization.
 
 ```swift
 import JuliaSwift
@@ -59,20 +59,11 @@ The defaults use strict encoding, a 1,024-token combined context, a 256-token he
 | Platform | Native runtime integration | Current validation |
 | --- | --- | --- |
 | macOS | ONNX Runtime and Rust tokenizer shared libraries | Built and tested with real weights on Apple Silicon |
-| Linux | ONNX Runtime and Rust tokenizer shared libraries | Package and Rust build checked in CI |
-| Windows | ONNX Runtime and Rust tokenizer DLLs | Package and Rust build checked in CI |
+| Linux | ONNX Runtime and Rust tokenizer shared libraries | Real-weight parity: 100/100 reference choices in CI |
+| Windows | ONNX Runtime and Rust tokenizer DLLs | Real-weight parity: 100/100 reference choices in CI |
 | iOS | Statically link ONNX Runtime C and Rust tokenizer libraries into the app | Package cross-compiles for arm64 iOS; device inference needs app integration testing |
 
 On iOS, build the Rust static library with `cargo build --release --target aarch64-apple-ios --manifest-path Native/tokenizer/Cargo.toml`, link `libjulia_tokenizer.a` and the [ONNX Runtime iOS C library](https://onnxruntime.ai/docs/install/) into the app, and bundle the three model files as app resources. The two library URL arguments are ignored on iOS because the symbols are statically linked. An iOS app needs enough storage and RAM for this 551 MB weight file. Run an on-device parity and memory test before release.
-
-`executionProvider: .cuda` and `.directML` select the corresponding ONNX Runtime provider when the installed library includes it. On Apple platforms, `.coreML` is available, but this export needs a single-file ONNX model for CoreML. Create one with an optional offline tool:
-
-```sh
-python3 -m pip install onnx
-python3 Scripts/inline_model.py Models/Julia-1 Models/Julia-1-inline
-```
-
-CoreML runs one request per batch because this export's CoreML partitions have a batch-one shape limit. On the Mac used for validation it was slower than ONNX Runtime CPU. Benchmark on the target hardware before choosing an accelerator.
 
 ## Verify and benchmark
 
@@ -91,7 +82,7 @@ swift run -c release julia-benchmark Models/Julia-1 /path/to/libonnxruntime.dyli
   Native/tokenizer/target/release/libjulia_tokenizer.dylib parity-cases.json
 ```
 
-On the local Apple Silicon Mac with ONNX Runtime 1.24.3 CPU, after one warmup call, the 100 cases took 1.464 seconds (14.64 ms per decision) with 100/100 matching choices and 0.000174 maximum absolute logit difference versus the author's PyTorch reference. This is a single-machine result, not a cross-platform speed claim. The CoreML path with an inlined model took 7.484 seconds for the same 100 cases.
+On the local Apple Silicon Mac with ONNX Runtime 1.24.3 CPU, after one warmup call, the 100 cases took 1.456 seconds (14.56 ms per decision) with 100/100 matching choices and 0.000174 maximum absolute logit difference versus the author's PyTorch reference. This is a single-machine result, not a cross-platform speed claim.
 
 The `Full model parity` workflow downloads the verified model and an official ONNX Runtime release, then runs the integration tests and 100-case benchmark on Linux and Windows. Trigger it from GitHub Actions when validating a new release.
 

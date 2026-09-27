@@ -12,20 +12,15 @@ struct ReferenceCase: Decodable {
 }
 
 let arguments = CommandLine.arguments
-guard arguments.count == 5 || arguments.count == 6 else {
-    fatalError("Usage: julia-benchmark MODEL_DIRECTORY ONNX_RUNTIME_LIBRARY TOKENIZER_LIBRARY CASES_JSON [CPU|CoreML|CUDA|DML]")
-}
-let providerName = arguments.count == 6 ? arguments[5] : "CPU"
-guard let provider = JuliaExecutionProvider(rawValue: providerName) else {
-    fatalError("Unsupported execution provider: \(providerName)")
+guard arguments.count == 5 else {
+    fatalError("Usage: julia-benchmark MODEL_DIRECTORY ONNX_RUNTIME_LIBRARY TOKENIZER_LIBRARY CASES_JSON")
 }
 let directory = URL(fileURLWithPath: arguments[1])
 let model = try JuliaModel(
     modelURL: directory.appendingPathComponent("model.onnx"),
     tokenizerURL: directory.appendingPathComponent("tokenizer.json"),
     onnxRuntimeLibraryURL: URL(fileURLWithPath: arguments[2]),
-    tokenizerLibraryURL: URL(fileURLWithPath: arguments[3]),
-    executionProvider: provider
+    tokenizerLibraryURL: URL(fileURLWithPath: arguments[3])
 )
 let cases = try JSONDecoder().decode([ReferenceCase].self, from: Data(contentsOf: URL(fileURLWithPath: arguments[4])))
 guard !cases.isEmpty else { fatalError("Reference case list is empty") }
@@ -40,7 +35,6 @@ let maximumDifference = zip(decisions, cases).flatMap { decision, reference in
     zip(decision.logits, reference.pytorchLogits).map { abs($0 - $1) }
 }.max() ?? 0
 print("\(cases.count) decisions in \(String(format: "%.3f", duration)) s")
-print("Execution provider: \(provider.rawValue)")
 print("\(String(format: "%.2f", duration * 1000 / Double(cases.count))) ms/decision")
 print("\(matches)/\(cases.count) reference choices; max logit difference \(maximumDifference)")
 guard matches == cases.count, maximumDifference < 0.02 else {

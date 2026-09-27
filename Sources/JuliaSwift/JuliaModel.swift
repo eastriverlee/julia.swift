@@ -7,13 +7,6 @@ public enum JuliaQuestionType: String, Codable, Sendable {
     case noul
 }
 
-public enum JuliaExecutionProvider: String, Sendable {
-    case cpu = "CPU"
-    case coreML = "CoreML"
-    case cuda = "CUDA"
-    case directML = "DML"
-}
-
 public struct JuliaQuestion: Codable, Sendable {
     public let state: String
     public let question: String
@@ -81,7 +74,6 @@ public final class JuliaModel {
         headLength: Int = 256,
         maximumBatchSize: Int = 8,
         strictEncoding: Bool = true,
-        executionProvider: JuliaExecutionProvider = .cpu,
         threadCount: Int32 = 0
     ) throws {
         guard maxLength > headLength + 4, maxLength <= 8192, headLength > 20 else {
@@ -101,8 +93,7 @@ public final class JuliaModel {
             julia_tokenizer_destroy(tokenizer)
             throw JuliaError.tokenizer(tokenizerMessage)
         }
-        guard let runtime = julia_runtime_create(onnxRuntimeLibraryURL.path, modelURL.path,
-            executionProvider.rawValue, threadCount) else {
+        guard let runtime = julia_runtime_create(onnxRuntimeLibraryURL.path, modelURL.path, threadCount) else {
             julia_tokenizer_destroy(tokenizer)
             throw JuliaError.runtime("Could not allocate ONNX Runtime")
         }
@@ -116,7 +107,7 @@ public final class JuliaModel {
         self.tokenizer = tokenizer
         self.maxLength = maxLength
         self.headLength = headLength
-        self.maximumBatchSize = executionProvider == .coreML ? 1 : maximumBatchSize
+        self.maximumBatchSize = maximumBatchSize
         self.strictEncoding = strictEncoding
     }
 
