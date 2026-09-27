@@ -1,4 +1,4 @@
-# Julia-1 for Swift
+# julia.swift
 
 Fast decisions on your own CPU. Free to run offline after installation. [Supersonic Labs Julia-1](https://huggingface.co/SupersonicLabs/Julia-1) follows the System One pattern: give it a situation, a question, and possible answers to get a choice, score, or yes/no probability. It handles the same kinds of typed questions as [Jev](https://docs.typesafe.ai/api) through a familiar request shape, using its own model and probabilities.
 
