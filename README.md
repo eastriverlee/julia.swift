@@ -51,12 +51,12 @@ The Windows installer adds `julia.cmd` to your user `PATH`; open a new terminal 
 | Deployment | Local CPU, offline after installation | Hosted API |
 | Price (input / output per 1M tokens) | Free | [$0.042 / $0](https://typesafe.ai/blog/introducing-system-one-models-and-jev) |
 | Speed | 14.56 ms/decision (M4 Pro CPU) | [70–500 ms/request (API)](https://typesafe.ai/blog/introducing-system-one-models-and-jev) |
-| Typed decisions | 73.15% | 72.70% reference |
-| AG News pilot, 100 examples | 94% | 91% reference |
-| Emotion pilot, 100 examples | 86% | 48% reference |
-| Banking77 pilot, 100 examples | 64% | 87% reference |
+| Typed decisions | 73.15% | 72.70% |
+| AG News pilot, 100 examples | 94% | 91% |
+| Emotion pilot, 100 examples | 86% | 48% |
+| Banking77 pilot, 100 examples | 64% | 87% |
 
-Accuracy figures come from the [Julia-1 model card](https://huggingface.co/SupersonicLabs/Julia-1), measured on the original checkpoint with H200 BF16 inference on September 24, 2026. Its Jev values are supplied references from earlier work. Banking77 used a ranking and top-16 shortlist. Jev's price and latency are TypeSafe's published figures from September 15, 2026. Validation of this Swift runtime covers 100 matching reference choices; the full accuracy suite describes the original runtime. The speed figures use different hardware, workloads, and measurement methods. Read each as a measurement of its own setup.
+Accuracy figures come from the [Julia-1 model card](https://huggingface.co/SupersonicLabs/Julia-1), measured on the original checkpoint with H200 BF16 inference on September 24, 2026. The Jev values are those reported in that card. Banking77 used a ranking and top-16 shortlist. Jev's price and latency are TypeSafe's published figures from September 15, 2026. Validation of this Swift runtime covers 100 matching choices; the full accuracy suite describes the original runtime. The speed figures use different hardware, workloads, and measurement methods. Read each as a measurement of its own setup.
 
 ## CLI requests
 
